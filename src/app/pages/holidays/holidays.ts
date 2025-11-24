@@ -33,11 +33,9 @@ export class Holidays implements OnInit {
 
   loading: boolean = false;
   currentYear: number = new Date().getFullYear();
+  loadedYears: Set<number> = new Set();
 
-  constructor(
-    private holidayService: HolidayService,
-    private cdr: ChangeDetectorRef
-  ) {}
+  constructor(private holidayService: HolidayService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.loadCountries();
@@ -58,12 +56,16 @@ export class Holidays implements OnInit {
 
   onCountryChange(): void {
     if (this.selectedCountry) {
+      this.loadedYears.clear();
+      this.holidays = [];
+      this.allHolidays = [];
       this.loadHolidays();
     } else {
       this.holidays = [];
       this.todayHolidays = [];
       this.allHolidays = [];
       this.filteredHolidays = [];
+      this.loadedYears.clear();
       this.cdr.detectChanges();
     }
   }
@@ -71,19 +73,35 @@ export class Holidays implements OnInit {
   loadHolidays(): void {
     if (!this.selectedCountry) return;
 
+    if (!this.loadedYears.has(this.currentYear)) {
+      this.loadHolidaysForYear(this.currentYear);
+    } else {
+      this.applyFilters();
+      this.checkTodayHoliday();
+    }
+  }
+
+  loadHolidaysForYear(year: number): void {
+    if (!this.selectedCountry || this.loadedYears.has(year)) {
+      return;
+    }
+
     this.loading = true;
     this.cdr.detectChanges();
-    this.holidayService.getPublicHolidays(this.currentYear, this.selectedCountry).subscribe({
+
+    this.holidayService.getPublicHolidays(year, this.selectedCountry).subscribe({
       next: (holidays) => {
-        this.holidays = holidays;
-        this.allHolidays = [...holidays];
+        this.holidays = [...this.holidays, ...holidays];
+        this.allHolidays = [...this.allHolidays, ...holidays];
+        this.allHolidays.sort((a, b) => a.date.localeCompare(b.date));
+        this.loadedYears.add(year);
         this.applyFilters();
         this.checkTodayHoliday();
         this.loading = false;
         this.cdr.detectChanges();
       },
       error: (error) => {
-        console.error('Error loading holidays:', error);
+        console.error(`Error loading holidays for year ${year}:`, error);
         this.loading = false;
         this.cdr.detectChanges();
       },
@@ -94,11 +112,9 @@ export class Holidays implements OnInit {
     if (!this.selectedCountry) return;
 
     const today = this.getTodayDateString();
-    
-    // Check all holidays (both fetched and created) for today's date
+
     this.todayHolidays = this.allHolidays.filter((holiday) => holiday.date === today);
-    
-    // If no holiday found in allHolidays, check next holidays from API
+
     if (this.todayHolidays.length === 0) {
       this.holidayService.getNextPublicHolidays(this.selectedCountry).subscribe({
         next: (nextHolidays) => {
@@ -110,7 +126,7 @@ export class Holidays implements OnInit {
         },
         error: () => {
           this.cdr.detectChanges();
-        }
+        },
       });
     } else {
       this.cdr.detectChanges();
@@ -120,7 +136,6 @@ export class Holidays implements OnInit {
   applyFilters(): void {
     let filtered = [...this.allHolidays];
 
-    // Date range filter
     if (this.startDate) {
       filtered = filtered.filter((h) => h.date >= this.startDate);
     }
@@ -142,12 +157,48 @@ export class Holidays implements OnInit {
     this.cdr.detectChanges();
   }
 
+  getYearsInDateRange(startDate: string, endDate: string): number[] {
+    if (!startDate || !endDate) return [];
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const years: number[] = [];
+
+    for (let year = start.getFullYear(); year <= end.getFullYear(); year++) {
+      years.push(year);
+    }
+
+    return years;
+  }
+
+  loadHolidaysForDateRange(): void {
+    if (!this.selectedCountry) {
+      this.applyFilters();
+      return;
+    }
+
+    if (this.startDate && this.endDate) {
+      const years = this.getYearsInDateRange(this.startDate, this.endDate);
+      const yearsToLoad = years.filter((year) => !this.loadedYears.has(year));
+
+      if (yearsToLoad.length > 0) {
+        yearsToLoad.forEach((year) => {
+          this.loadHolidaysForYear(year);
+        });
+      } else {
+        this.applyFilters();
+      }
+    } else {
+      this.applyFilters();
+    }
+  }
+
   onStartDateChange(): void {
-    this.applyFilters();
+    this.loadHolidaysForDateRange();
   }
 
   onEndDateChange(): void {
-    this.applyFilters();
+    this.loadHolidaysForDateRange();
   }
 
   onSearchChange(): void {
@@ -181,11 +232,9 @@ export class Holidays implements OnInit {
     this.allHolidays.push(holiday);
     this.allHolidays.sort((a, b) => a.date.localeCompare(b.date));
     this.applyFilters();
-    
-    // Check if the newly created holiday is today's holiday
+
     this.checkTodayHoliday();
 
-    // Reset form
     this.newHoliday = {
       date: '',
       localName: '',
