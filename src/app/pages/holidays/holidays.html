@@ -1,0 +1,200 @@
+<div class="holiday-container">
+  <h1>Public Holidays Manager</h1>
+
+  <div class="country-selector">
+    <label for="countrySelect">Select Country:</label>
+    <select
+      id="countrySelect"
+      [(ngModel)]="selectedCountry"
+      (change)="onCountryChange()"
+      class="country-dropdown"
+    >
+      <option value="">-- Select a Country --</option>
+      <option *ngFor="let country of countries" [value]="country.countryCode">
+        {{ country.name }} ({{ country.countryCode }})
+      </option>
+    </select>
+  </div>
+
+  <div *ngIf="loading" class="loading">Loading holidays...</div>
+
+  <div *ngIf="selectedCountry && todayHolidays.length > 0" class="today-holidays-section">
+    <h2>Today's Holidays</h2>
+    <div class="today-cards">
+      <div *ngFor="let holiday of todayHolidays" class="holiday-card today-card">
+        <div class="card-header">
+          <span class="badge today-badge">TODAY</span>
+        </div>
+        <div class="card-body">
+          <h3>{{ holiday.name }}</h3>
+          <p class="local-name">{{ holiday.localName }}</p>
+          <p class="date">{{ formatDate(holiday.date) }}</p>
+          <div class="card-footer">
+            <span class="type-badge">{{ holiday.types[0] }}</span>
+            <span *ngIf="holiday.global" class="global-badge">Global</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="selectedCountry" class="filters-section">
+    <h2>Filters & Search</h2>
+    <div class="filters-grid">
+      <div class="filter-group">
+        <label for="startDate">Start Date:</label>
+        <input
+          type="date"
+          id="startDate"
+          [(ngModel)]="startDate"
+          (change)="onStartDateChange()"
+          class="date-input"
+        />
+      </div>
+      <div class="filter-group">
+        <label for="endDate">End Date:</label>
+        <input
+          type="date"
+          id="endDate"
+          [(ngModel)]="endDate"
+          (change)="onEndDateChange()"
+          class="date-input"
+        />
+      </div>
+      <div class="filter-group search-group">
+        <label for="search">Search by Name:</label>
+        <input
+          type="text"
+          id="search"
+          [(ngModel)]="searchTerm"
+          (input)="onSearchChange()"
+          placeholder="Search holidays..."
+          class="search-input"
+        />
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="selectedCountry" class="create-section">
+    <button (click)="toggleCreateForm()" class="btn btn-primary">
+      {{ showCreateForm ? 'Cancel' : '+ Create New Holiday' }}
+    </button>
+  </div>
+
+  <div *ngIf="showCreateForm && selectedCountry" class="create-form">
+    <h3>Create New Holiday</h3>
+    <form (ngSubmit)="createHoliday()" class="holiday-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="newDate">Date *</label>
+          <input
+            type="date"
+            id="newDate"
+            [(ngModel)]="newHoliday.date"
+            name="date"
+            required
+            class="form-input"
+          />
+        </div>
+        <div class="form-group">
+          <label for="newName">Name *</label>
+          <input
+            type="text"
+            id="newName"
+            [(ngModel)]="newHoliday.name"
+            name="name"
+            required
+            placeholder="Holiday name"
+            class="form-input"
+          />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="newLocalName">Local Name</label>
+          <input
+            type="text"
+            id="newLocalName"
+            [(ngModel)]="newHoliday.localName"
+            name="localName"
+            placeholder="Local name"
+            class="form-input"
+          />
+        </div>
+        <div class="form-group">
+          <label for="newLaunchYear">Launch Year</label>
+          <input
+            type="number"
+            id="newLaunchYear"
+            [(ngModel)]="newHoliday.launchYear"
+            name="launchYear"
+            placeholder="Year"
+            class="form-input"
+          />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group checkbox-group">
+          <label>
+            <input type="checkbox" [(ngModel)]="newHoliday.global" name="global" />
+            Global Holiday
+          </label>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-success">Create Holiday</button>
+        <button type="button" (click)="cancelCreateForm()" class="btn btn-secondary">Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <div *ngIf="selectedCountry" class="holidays-table-section">
+    <h2>All Holidays ({{ filteredHolidays.length }})</h2>
+    <div class="table-container">
+      <table class="holidays-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Name</th>
+            <th>Local Name</th>
+            <th>Type</th>
+            <th>Global</th>
+            <th>Launch Year</th>
+            <th>Counties</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            *ngFor="let holiday of filteredHolidays"
+            [class.today-row]="holiday.date === getTodayDateString()"
+          >
+            <td>{{ formatDate(holiday.date) }}</td>
+            <td>
+              <strong>{{ holiday.name }}</strong>
+            </td>
+            <td>{{ holiday.localName }}</td>
+            <td>
+              <span class="type-badge" *ngFor="let type of holiday.types">
+                {{ type }}
+              </span>
+            </td>
+            <td>
+              <span *ngIf="holiday.global" class="global-badge">Yes</span>
+              <span *ngIf="!holiday.global" class="local-badge">No</span>
+            </td>
+            <td>{{ holiday.launchYear || '-' }}</td>
+            <td>
+              <span *ngIf="holiday.counties && holiday.counties.length > 0">
+                {{ holiday.counties.join(', ') }}
+              </span>
+              <span *ngIf="!holiday.counties || holiday.counties.length === 0">-</span>
+            </td>
+          </tr>
+          <tr *ngIf="filteredHolidays.length === 0">
+            <td colspan="7" class="no-data">No holidays found matching your filters.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
