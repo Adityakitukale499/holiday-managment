@@ -9,7 +9,7 @@
     "test": "ng test",
     "serve:ssr:angular-app": "node dist/angular-app/server/server.mjs",
     "build:ssr": "ng build && ng run angular-app:server",
-    "start:ssr": "node dist/angular-app/server/main.js"
+    "start:ssr": "node dist/angular-app/server/server.mjs"
   },
   "prettier": {
     "printWidth": 100,
